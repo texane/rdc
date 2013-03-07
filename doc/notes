@@ -19,3 +19,11 @@ javascript for nodejs and email support
 [ email notifications ]
 http://stackoverflow.com/questions/4113701/sending-emails-in-node-js
 https://github.com/andris9/Nodemailer
+
+[ nodejs ]
+[[ nodemailer ]]
+install nodemailer module locally using npm: npm install nodemailer
+running node js: NODE_PATH=../node_modules node mailer.js
+[[ rpib gpios ]]
+https://npmjs.org/package/pi-gpio
+npm install pi-gpio
