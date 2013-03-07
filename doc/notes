@@ -1,0 +1,21 @@
+[ plateform ]
+raspberry pi, for inet connectivity and LINUX support
+
+[ communication ]
+http endpoint
+reverse communication using http or email
+
+[ persistent storage ]
+able to reapply the last configuration if power goes down
+
+[ notification system ]
+email sms alerts
+transport layers: email, sms
+
+[ implementation ]
+C for low level hardware access
+javascript for nodejs and email support
+
+[ email notifications ]
+http://stackoverflow.com/questions/4113701/sending-emails-in-node-js
+https://github.com/andris9/Nodemailer
