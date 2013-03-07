@@ -31,6 +31,7 @@ https://github.com/andris9/Nodemailer
 [[ cross compile ]]
 http://n8.io/cross-compiling-nodejs-v0.8/
 refer to do_configure_node.sh
+note that it might be required to edit out/Makefile and set LINK.target
 
 [[ nodemailer ]]
 install nodemailer module locally using npm: npm install nodemailer
