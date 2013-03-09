@@ -22,8 +22,14 @@ javascript for nodejs and email support
 
 
 [ email notifications ]
+
+[[ implementation ]]
 http://stackoverflow.com/questions/4113701/sending-emails-in-node-js
 https://github.com/andris9/Nodemailer
+
+[[ event ]]
+system reboot
+ip changed
 
 
 [ nodejs ]

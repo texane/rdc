@@ -1,7 +1,17 @@
 // globals
 
 var fs = require('fs');
-var events_dir = './events';
+var top_dir = '.';
+var events_dir = top_dir + '/events';
+
+var http = require('http');
+var http_auth = require("http-auth");
+var http_auth_digest = http_auth
+({
+    authFile: top_dir + '/htpasswd',
+    authRealm : "rdc realm",
+    authType : 'digest'
+});
 
 
 // send an email
@@ -71,7 +81,7 @@ function do_event(event_data)
 
 // http server
 
-function do_server(one_time)
+function do_server(from_cmdline)
 {
     // initialize event logic
     try { fs.mkdirSync(events_dir); } catch(e) {}
@@ -84,11 +94,23 @@ function do_server(one_time)
     {
 	console.log('on_request');
 
-	resp.writeHead(200, {'Content-Type': 'text/html'});
-	resp.write('the_body');
-	resp.end();
+	function on_auth_request(username)
+	{
+	    // user is authenticated
+	    // resp.writeHead(200, {'Content-Type': 'text/html'});
+	    // resp.write('authenticated');
+	    resp.end('authenticated');
+	}
 
-	if (one_time == true) server.close();
+	if (from_cmdline == true)
+	{
+	    on_auth_request('');
+	    server.close();
+	    return ;
+	}
+
+	// user must authenticate
+	http_auth_digest.apply(req, resp, on_auth_request);
     }
 
     function on_listen()
@@ -102,7 +124,6 @@ function do_server(one_time)
 	do_event(data);
     }
 
-    var http = require('http');
     try
     {
 	server = http.createServer(on_request);
