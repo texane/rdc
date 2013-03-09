@@ -97,9 +97,9 @@ function do_server(from_cmdline)
 	function on_auth_request(username)
 	{
 	    // user is authenticated
-	    // resp.writeHead(200, {'Content-Type': 'text/html'});
-	    // resp.write('authenticated');
-	    resp.end('authenticated');
+	    resp.writeHead(200, {'Content-Type': 'text/html'});
+	    resp.write('authenticated');
+	    resp.end();
 	}
 
 	if (from_cmdline == true)
