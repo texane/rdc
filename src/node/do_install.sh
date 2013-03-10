@@ -2,7 +2,6 @@
 
 # install nodejs modules
 npm install nodemailer
-npm install pi-gpio
 npm install http-auth
 npm install htdigest
 
