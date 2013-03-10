@@ -1,5 +1,8 @@
 // globals
 
+var os = require('os');
+var hostname = os.hostname();
+
 var fs = require('fs');
 var top_dir = '.';
 var events_dir = top_dir + '/events';
@@ -44,7 +47,7 @@ function do_perror(s, is_html)
 }
 
 
-// send an email
+// smtp
 
 var smtp_user = 'remote.device.controller@gmail.com';
 var smtp_pass = 'remotedevicecontroller';
@@ -120,18 +123,97 @@ function do_event(event_data)
 
 // gpio routines
 
+var gpio_sysfs_dir = '/sys/class/gpio'
+var gpio_is_enabled = false;
 var gpio_status = [ 0, 0, 0, 0 ];
+
+// map refers to the BCM2835 pins
+// http://elinux.org/RPi_Low-level_peripherals
+// http://elinux.org/RPi_BCM2835_Pinout
+var gpio_map = [ 18, 23, 24, 25 ];
+// p1_02_header_view = [ 5, 7, 8, 10 ];
+
+function gpio_get_direction_path(i)
+{
+    return gpio_sysfs_dir + '/gpio' + gpio_map[i] + '/direction';
+}
+
+function gpio_get_value_path(i)
+{
+    return gpio_sysfs_dir + '/gpio' + gpio_map[i] + '/value';
+}
+
+function gpio_write(i, x)
+{
+    var val_path = gpio_get_value_path(gpio_map[i]);
+    fs.writeFileSync(val_path, x.toString(), 'utf8');
+}
+
+function gpio_read(i)
+{
+    var val_path = gpio_get_value_path(gpio_map[i]);
+    var x = fs.readFileSync(val_path, 'utf8');
+    return (x == '0') ? 0 : 1;
+}
+
+function gpio_set_output(i)
+{
+    var dir_path = gpio_get_direction_path(gpio_map[i]);
+    fs.writeFileSync(dir_path, 'out', 'utf8');
+}
+
+function gpio_export(i)
+{
+    var export_path = gpio_sysfs_dir + '/export';
+    fs.writeFileSync(export_path, gpio_map[i].toString(), 'utf8');
+}
+
+function do_init_gpios()
+{
+    if (hostname == 'rpib')
+    {
+	try
+	{
+	    // export gpios and set to default values
+	    for (var i = 0; i < 4; ++i)
+	    {
+		gpio_export(i);
+		gpio_set_output(i);
+		gpio_write(i, gpio_status[i]);
+	    }
+
+	    gpio_is_enabled = true;
+	}
+	catch(e)
+	{
+	    do_perror('gpio init failed');
+	}
+    }
+}
+
+function do_get_gpio_status(i)
+{
+    // update with actual status
+    if (gpio_is_enabled) gpio_status[i] = gpio_read(i);
+    return gpio_status[i];
+}
+
+function do_save_gpio_status()
+{
+}
 
 function do_enable_gpio(i)
 {
-    do_print('enable_gpio(' + i + ')');
-    gpio_status[i] = 1;
+    if (gpio_is_enabled) gpio_write(i, 1);
+    else gpio_status[i] = 1;
+    do_save_gpio_status();
 }
 
 function do_disable_gpio(i)
 {
-    do_print('disable_gpio(' + i + ')');
-    gpio_status[i] = 0;
+    if (gpio_is_enabled) gpio_write(i, 0);
+    else gpio_status[i] = 0;
+    do_save_gpio_status();
 }
 
 function do_get_gpio_index(parsed)
@@ -210,7 +292,7 @@ function do_rewrite_html(body)
     for (var i = 0; i < 4; ++i)
     {
 	var status = 'high';
-	if (gpio_status[i] == 0) status = 'low';
+	if (do_get_gpio_status(i) == 0) status = 'low';
 	body = body.replace('RDC_GPIO[' + i + ']', status); 
     }
 
@@ -233,6 +315,9 @@ function do_server(from_cmdline)
     // initialize event logic
     try { fs.mkdirSync(events_dir); } catch(e) {}
     setInterval(on_1hz_interval, 1000);
+
+    // initialize gpios
+    do_init_gpios();
 
     // create the http server
     var server;
