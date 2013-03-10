@@ -167,7 +167,7 @@ function do_event(event_data)
 
 var gpio_sysfs_dir = '/sys/class/gpio'
 var gpio_is_enabled = false;
-var gpio_status = [ 0, 0, 0, 0 ];
+var gpio_state;
 
 // map refers to the BCM2835 pins
 // http://elinux.org/RPi_Low-level_peripherals
@@ -210,30 +210,36 @@ function gpio_export(i)
     fs.writeFileSync(export_path, gpio_map[i].toString(), 'utf8');
 }
 
-
 function gpio_save()
 {
+    json_write_object(gpio_state, 'gpio');
 }
 
 function gpio_load()
 {
-    for (var i = 0; i < 4; ++i) gpio_status[i] = 0;
+    gpio_state = json_read_object('gpio');
+
+    for (var i = 0; i < 4; ++i)
+    {
+	if (gpio_state.hasOwnProperty(i) == false)
+	    gpio_state[i] = 0;
+    }
 }
 
 function gpio_init()
 {
+    gpio_load();
+
     if (hostname == 'rpib')
     {
 	try
 	{
-	    gpio_load();
-
 	    // export gpios and set to default values
 	    for (var i = 0; i < 4; ++i)
 	    {
 		gpio_export(i);
 		gpio_set_output(i);
-		gpio_write(i, gpio_status[i]);
+		gpio_write(i, gpio_state[i]);
 	    }
 
 	    gpio_is_enabled = true;
@@ -248,21 +254,21 @@ function gpio_init()
 function gpio_get_status(i)
 {
     // update with actual status
-    if (gpio_is_enabled) gpio_status[i] = gpio_read(i);
-    return gpio_status[i];
+    if (gpio_is_enabled) gpio_state[i] = gpio_read(i);
+    return gpio_state[i];
 }
 
 function gpio_enable(i)
 {
     if (gpio_is_enabled) gpio_write(i, 1);
-    else gpio_status[i] = 1;
+    else gpio_state[i] = 1;
     gpio_save();
 }
 
 function gpio_disable(i)
 {
     if (gpio_is_enabled) gpio_write(i, 0);
-    else gpio_status[i] = 0;
+    else gpio_state[i] = 0;
     gpio_save();
 }
 
