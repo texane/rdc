@@ -3,6 +3,7 @@
 var fs = require('fs');
 var top_dir = '.';
 var events_dir = top_dir + '/events';
+var html_dir = top_dir + '/html';
 
 var http = require('http');
 var http_auth = require("http-auth");
@@ -13,11 +14,14 @@ var http_auth_digest = http_auth
     authType : 'digest'
 });
 
+var url = require('url');
+
 
 // send an email
 
 var smtp_user = 'remote.device.controller@gmail.com';
 var smtp_pass = 'remotedevicecontroller';
+var smtp_contact = 'fabien.lementec@gmail.com';
 
 var nodemailer = require('nodemailer/lib/nodemailer');
 var smtp_opts = { auth: { user: smtp_user, pass: smtp_pass } };
@@ -28,7 +32,7 @@ function do_email(body)
     var msg =
     {
 	from: smtp_user,
-	to: 'fabien.lementec@gmail.com',
+	to: smtp_contact,
 	subject: 'notification',
 	header: { 'X-Laziness-level': 1000 },
 	text: body
@@ -79,6 +83,104 @@ function do_event(event_data)
 }
 
 
+// gpio routines
+
+var gpio_status = [ 0, 0, 0, 0 ];
+
+function do_enable_gpio(i)
+{
+    console.log('enable_gpio(' + i + ')');
+    gpio_status[i] = 1;
+}
+
+function do_disable_gpio(i)
+{
+    console.log('disable_gpio(' + i + ')');
+    gpio_status[i] = 0;
+}
+
+
+// update smtp settings
+
+function do_update_smtp(parsed_query)
+{
+    console.log('update_smtp');
+
+    var do_reconnect = false;
+    var has_changed = false;
+
+    if (parsed.query.hasOwnProperty('smtp_user'))
+    {
+	if (smtp_user != parsed_query['smtp_user'])
+	{
+	    smtp_user = parsed_query['smtp_user'];
+	    do_reconnect = true;
+	    has_changed = true;
+	}
+    }
+
+    if (parsed.query.hasOwnProperty('smtp_pass'))
+    {
+	if (smtp_pass != parsed_query['smtp_pass'])
+	{
+	    smtp_pass = parsed_query['smtp_pass'];
+	    do_reconnect = true;
+	    has_changed = true;
+	}
+    }
+
+    if (parsed.query.hasOwnProperty('smtp_contact'))
+    {
+	if (smtp_contact != parsed_query['smtp_contact'])
+	{
+	    smtp_contact = parsed_query['smtp_contact'];
+	    has_changed = true;
+	}
+    }
+
+    if (do_reconnect == true)
+    {
+	try
+	{
+	    smtp_trans.close();
+	    smtp_opts = { auth: { user: smtp_user, pass: smtp_pass } };
+	    smtp_trans = nodemailer.createTransport('SMTP', smtp_opts);
+	}
+	catch(e) {}
+    }
+
+    if (has_changed == true)
+    {
+	// TODO: write to file
+	console.log('TODO, write smtp changes');
+    }
+}
+
+
+// rewrite html
+
+function do_rewrite_html(body)
+{
+    // gpios section
+    for (var i = 0; i < 4; ++i)
+    {
+	var status = 'high';
+	if (gpio_status[i] == 0) status = 'low';
+	body = body.replace('RDC_GPIO[' + i + ']', status); 
+    }
+
+    // smtp section
+    body = body.replace('RDC_SMTP_USER', smtp_user);
+    body = body.replace('RDC_SMTP_PASS', smtp_pass);
+    body = body.replace('RDC_SMTP_CONTACT', smtp_contact);
+
+    // report section
+    body = body.replace('RDC_OUTPUT', 'success');
+    
+    return body;
+}
+
+
 // http server
 
 function do_server(from_cmdline)
@@ -98,7 +200,30 @@ function do_server(from_cmdline)
 	{
 	    // user is authenticated
 	    resp.writeHead(200, {'Content-Type': 'text/html'});
-	    resp.write('authenticated');
+
+	    if (req.method == 'GET')
+	    {
+ 		parsed = url.parse(req.url, true);
+
+		if (parsed.query.hasOwnProperty('i'))
+		{
+		    if (parsed.pathname == '/enable_gpio')
+			do_enable_gpio(parsed.query['i']);
+		    else if (parsed.pathname == '/disable_gpio')
+			do_disable_gpio(parsed.query['i']);
+		}
+		else if (parsed.pathname == '/update_smtp')
+		{
+		    do_update_smtp(parsed.query);
+		}
+
+		// send main page
+		var body = 'an error occured';
+		try { body = fs.readFileSync(html_dir + '/main.html', 'utf8'); }
+		catch(e) {}
+		resp.write(do_rewrite_html(body));
+	    }
+
 	    resp.end();
 	}
 

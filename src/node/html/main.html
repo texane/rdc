@@ -1,0 +1,83 @@
+<html>
+<body>
+
+<h4><u>GPIOs panel</u></h4>
+<table border="0" cellspacing="10">
+<tr>
+ <th>index</th>
+ <th>status</th>
+ <th>command</th>
+</tr>
+<tr>
+ <td>gpio[0]</td>
+ <td>RDC_GPIO[0]</td>
+ <td>
+  <a href='/enable_gpio?i=0'>enable</a>
+  <a href='/disable_gpio?i=0'>disable</a>
+ </td>
+</tr>
+<tr>
+ <td>gpio[1]</td>
+ <td>RDC_GPIO[1]</td>
+ <td>
+  <a href='/enable_gpio?i=1'>enable</a>
+  <a href='/disable_gpio?i=1'>disable</a>
+ </td>
+</tr>
+<tr>
+ <td>gpio[2]</td>
+ <td>RDC_GPIO[2]</td>
+ <td>
+  <a href='/enable_gpio?i=2'>enable</a>
+  <a href='/disable_gpio?i=2'>disable</a>
+ </td>
+</tr>
+<tr>
+ <td>gpio[3]</td>
+ <td>RDC_GPIO[3]</td>
+ <td>
+  <a href='/enable_gpio?i=3'>enable</a>
+  <a href='/disable_gpio?i=3'>disable</a>
+ </td>
+</tr>
+</table>
+
+
+<br/>
+<br/>
+<h4><u>NOTIFICATION panel</u></h4>
+
+<form name="input" action="/update_smtp" method="get">
+  <table>
+  <tr>
+    <td> smtp user </td>
+    <td>
+      <input type="text" name="smtp_user" value="RDC_SMTP_USER" />
+      <input type="submit" value="update" />
+    </td>
+  </tr>
+  <tr>
+    <td> smtp pass </td>
+    <td>
+      <input type="text" name="smtp_pass" value="RDC_SMTP_PASS" />
+      <input type="submit" value="update" />
+    </td>
+  </tr>
+  <tr>
+    <td> smtp contact </td>
+    <td>
+      <input type="text" name="smtp_contact" value="RDC_SMTP_CONTACT" />
+      <input type="submit" value="update" />
+    </td>
+  </tr>
+  </table>
+</form>
+
+
+<br/>
+<br/>
+<h4><u>REPORT panel</u></h4>
+RDC_OUTPUT
+
+</body>
+</html>
