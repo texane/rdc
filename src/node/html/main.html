@@ -40,6 +40,18 @@
   <a href='/disable_gpio?i=3'>disable</a>
  </td>
 </tr>
+<tr>
+ <td></td>
+ <td></td>
+ <td align="right">
+   <form name="input" action="/refresh_gpios" method="get">
+     <input type="submit" value="refresh" />
+   </form>
+ </td>
+</tr>
+
+
+
 </table>
 
 
@@ -47,36 +59,49 @@
 <br/>
 <h4><u>NOTIFICATION panel</u></h4>
 
-<form name="input" action="/update_smtp" method="get">
   <table>
+<form name="input" action="/update_smtp" method="get">
   <tr>
     <td> smtp user </td>
     <td>
       <input type="text" name="smtp_user" value="RDC_SMTP_USER" />
-      <input type="submit" value="update" />
     </td>
   </tr>
   <tr>
     <td> smtp pass </td>
     <td>
       <input type="text" name="smtp_pass" value="RDC_SMTP_PASS" />
-      <input type="submit" value="update" />
     </td>
   </tr>
   <tr>
     <td> smtp contact </td>
     <td>
       <input type="text" name="smtp_contact" value="RDC_SMTP_CONTACT" />
-      <input type="submit" value="update" />
     </td>
   </tr>
-  </table>
+  <tr>
+    <td></td>
+    <td align="right">
+      <input type="submit" value="update" style="width: 100px"/>
+    </td>
+
 </form>
 
+  </tr>
+  <tr>
+    <td></td>
+    <form name="input" action="/test_smtp" method="get">
+      <td align="right">
+	<input type="submit" value="test" style="width: 100px"/>
+      </td>
+    </form>
+  </tr>
+  </table>
+
 
 <br/>
 <br/>
-<h4><u>REPORT panel</u></h4>
+<h4><u>CONSOLE panel</u></h4>
 RDC_OUTPUT
 
 </body>

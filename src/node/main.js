@@ -17,6 +17,33 @@ var http_auth_digest = http_auth
 var url = require('url');
 
 
+// html and console logging
+
+var html_line = '';
+
+function do_print_common(s, is_html, is_err)
+{
+    console.log(s);
+    if (is_html == true)
+    {
+	var c = (is_err ? "red" : "green");
+	html_line += '<b><font color="' + c + '">' + s + '</font></b><br/>';
+    }
+}
+
+function do_print(s, is_html)
+{
+    is_html = ((typeof is_html == 'undefined') ? 'false' : is_html);
+    do_print_common(s, is_html, false);
+}
+
+function do_perror(s, is_html)
+{
+    is_html = ((typeof is_html == 'undefined') ? 'false' : is_html);
+    do_print_common(s, is_html, true);
+}
+
+
 // send an email
 
 var smtp_user = 'remote.device.controller@gmail.com';
@@ -40,10 +67,18 @@ function do_email(body)
 
     function on_error(e)
     {
-	if (e) console.log('do_email error: ' + e.message);
+	if (e) do_print('do_email error: ' + e.message);
     }
 
-    try { smtp_trans.sendMail(msg, on_error); } catch(e) {}
+    try
+    {
+	smtp_trans.sendMail(msg, on_error);
+	do_print('email sent to ' + smtp_contact, true);
+    }
+    catch(e)
+    {
+	do_perror('smtp error');
+    }
 }
 
 
@@ -51,7 +86,7 @@ function do_email(body)
 
 function do_status()
 {
-    console.log('do_status');
+    do_print('do_status');
 }
 
 
@@ -67,7 +102,7 @@ function on_1hz_interval()
     for (i in names)
     {
 	path = events_dir + '/' + names[i];
-	console.log('new event: ' + path);
+	do_print('new event: ' + path);
 	try { s = fs.readFileSync(path); } catch(e) {}
 	try { fs.unlinkSync(path); } catch(e) {}
 	do_email(s);
@@ -89,31 +124,41 @@ var gpio_status = [ 0, 0, 0, 0 ];
 
 function do_enable_gpio(i)
 {
-    console.log('enable_gpio(' + i + ')');
+    do_print('enable_gpio(' + i + ')');
     gpio_status[i] = 1;
 }
 
 function do_disable_gpio(i)
 {
-    console.log('disable_gpio(' + i + ')');
+    do_print('disable_gpio(' + i + ')');
     gpio_status[i] = 0;
+}
+
+function do_get_gpio_index(parsed)
+{
+    if (parsed.query.hasOwnProperty('i'))
+    {
+	var i = parsed.query['i'];
+	if ((i >= 0) && (i <= 3)) return i;
+    }
+    return -1;
 }
 
 
 // update smtp settings
 
-function do_update_smtp(parsed_query)
+function do_update_smtp(parsed)
 {
-    console.log('update_smtp');
+    do_print('update_smtp');
 
     var do_reconnect = false;
     var has_changed = false;
 
     if (parsed.query.hasOwnProperty('smtp_user'))
     {
-	if (smtp_user != parsed_query['smtp_user'])
+	if (smtp_user != parsed.query['smtp_user'])
 	{
-	    smtp_user = parsed_query['smtp_user'];
+	    smtp_user = parsed.query['smtp_user'];
 	    do_reconnect = true;
 	    has_changed = true;
 	}
@@ -121,9 +166,9 @@ function do_update_smtp(parsed_query)
 
     if (parsed.query.hasOwnProperty('smtp_pass'))
     {
-	if (smtp_pass != parsed_query['smtp_pass'])
+	if (smtp_pass != parsed.query['smtp_pass'])
 	{
-	    smtp_pass = parsed_query['smtp_pass'];
+	    smtp_pass = parsed.query['smtp_pass'];
 	    do_reconnect = true;
 	    has_changed = true;
 	}
@@ -131,9 +176,9 @@ function do_update_smtp(parsed_query)
 
     if (parsed.query.hasOwnProperty('smtp_contact'))
     {
-	if (smtp_contact != parsed_query['smtp_contact'])
+	if (smtp_contact != parsed.query['smtp_contact'])
 	{
-	    smtp_contact = parsed_query['smtp_contact'];
+	    smtp_contact = parsed.query['smtp_contact'];
 	    has_changed = true;
 	}
     }
@@ -152,7 +197,7 @@ function do_update_smtp(parsed_query)
     if (has_changed == true)
     {
 	// TODO: write to file
-	console.log('TODO, write smtp changes');
+	do_print('TODO, write smtp changes');
     }
 }
 
@@ -174,8 +219,8 @@ function do_rewrite_html(body)
     body = body.replace('RDC_SMTP_PASS', smtp_pass);
     body = body.replace('RDC_SMTP_CONTACT', smtp_contact);
 
-    // report section
-    body = body.replace('RDC_OUTPUT', 'success');
+    // console section
+    body = body.replace('RDC_OUTPUT', html_line);
     
     return body;
 }
@@ -194,10 +239,13 @@ function do_server(from_cmdline)
 
     function on_request(req, resp)
     {
-	console.log('on_request');
+	do_print('on_request');
 
 	function on_auth_request(username)
 	{
+	    // reset html output line
+	    html_line = '';
+
 	    // user is authenticated
 	    resp.writeHead(200, {'Content-Type': 'text/html'});
 
@@ -205,21 +253,38 @@ function do_server(from_cmdline)
 	    {
  		parsed = url.parse(req.url, true);
 
-		if (parsed.query.hasOwnProperty('i'))
+		if (parsed.pathname == '/enable_gpio')
 		{
-		    if (parsed.pathname == '/enable_gpio')
-			do_enable_gpio(parsed.query['i']);
-		    else if (parsed.pathname == '/disable_gpio')
-			do_disable_gpio(parsed.query['i']);
+		    var i = do_get_gpio_index(parsed);
+		    if (i == -1) do_perror('invalid gpio', true);
+		    else do_enable_gpio(i);
+		}
+		else if (parsed.pathname == '/disable_gpio')
+		{
+		    var i = do_get_gpio_index(parsed);
+		    if (i == -1) do_perror('invalid gpio', true);
+		    else do_disable_gpio(i);
+		}
+		else if (parsed.parsed == '/refresh_gpios')
+		{
+		    // nothing to do, refreshed by do_rewrite_html
 		}
 		else if (parsed.pathname == '/update_smtp')
 		{
-		    do_update_smtp(parsed.query);
+		    do_update_smtp(parsed);
+		}
+		else if (parsed.pathname == '/test_smtp')
+		{
+		    do_email('test email');
 		}
 
+		// update html line if empty
+		if (html_line == '') do_print('success', true);
+
 		// send main page
-		var body = 'an error occured';
-		try { body = fs.readFileSync(html_dir + '/main.html', 'utf8'); }
+		var main_html = html_dir + '/main.html';
+		var body = 'error reading ' + main_html;
+		try { body = fs.readFileSync(main_html, 'utf8'); }
 		catch(e) {}
 		resp.write(do_rewrite_html(body));
 	    }
@@ -273,13 +338,13 @@ function do_cmdline(av)
     {
 	function on_data(chunk)
 	{
-	    console.log('body   : ' + chunk);
+	    do_print('body   : ' + chunk);
 	}
 
 	function on_response(resp)
 	{
-	    console.log('status : ' + resp.statusCode);
-	    console.log('headers: ' + JSON.stringify(resp.headers));
+	    do_print('status : ' + resp.statusCode);
+	    do_print('headers: ' + JSON.stringify(resp.headers));
 	    resp.setEncoding('utf8');
 	    resp.on('data', on_data);
 	}
