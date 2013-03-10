@@ -167,34 +167,57 @@ function do_event(event_data)
 
 var gpio_sysfs_dir = '/sys/class/gpio'
 var gpio_is_enabled = false;
-var gpio_state;
+
+// used when gpio_is_enabled = false
+var gpio_buffer = [ 0, 0, 0, 0 ];
 
 // map refers to the BCM2835 pins
 // http://elinux.org/RPi_Low-level_peripherals
 // http://elinux.org/RPi_BCM2835_Pinout
-var gpio_map = [ 18, 23, 24, 25 ];
-// p1_02_header_view = [ 5, 7, 8, 10 ];
+var gpio_map = [ 4, 17, 27, 22 ];
+// p1_01_header_view = [ 3, 5, 6, 7 ];
+
+function gpio_get_common_path(i)
+{
+    return gpio_sysfs_dir + '/gpio' + i;
+}
 
 function gpio_get_direction_path(i)
 {
-    return gpio_sysfs_dir + '/gpio' + gpio_map[i] + '/direction';
+    return gpio_get_common_path(i) + '/direction';
 }
 
 function gpio_get_value_path(i)
 {
-    return gpio_sysfs_dir + '/gpio' + gpio_map[i] + '/value';
+    return gpio_get_common_path(i) + '/value';
 }
 
 function gpio_write(i, x)
 {
-    var val_path = gpio_get_value_path(gpio_map[i]);
-    fs.writeFileSync(val_path, x.toString(), 'utf8');
+    if (gpio_is_enabled)
+    {
+	var val_path = gpio_get_value_path(gpio_map[i]);
+	fs.writeFileSync(val_path, x.toString(), 'utf8');
+    }
+    else
+    {
+	gpio_buffer[i] = x;
+    }
 }
 
 function gpio_read(i)
 {
-    var val_path = gpio_get_value_path(gpio_map[i]);
-    var x = fs.readFileSync(val_path, 'utf8');
+    var x;
+    if (gpio_is_enabled)
+    {
+	var val_path = gpio_get_value_path(gpio_map[i]);
+	x = fs.readFileSync(val_path, 'utf8');
+	if (x.length >= 1) x = x[0];
+    }
+    else
+    {
+	x = gpio_buffer[i];
+    }
     return (x == '0') ? 0 : 1;
 }
 
@@ -206,31 +229,39 @@ function gpio_set_output(i)
 
 function gpio_export(i)
 {
+    if (fs.existsSync(gpio_get_common_path(gpio_map[i])) == true)
+    {
+	// already exported
+	return ;
+    }
+
     var export_path = gpio_sysfs_dir + '/export';
     fs.writeFileSync(export_path, gpio_map[i].toString(), 'utf8');
 }
 
-function gpio_save()
+function gpio_save_state()
 {
-    json_write_object(gpio_state, 'gpio');
+    var state = {};
+    for (var i = 0; i < 4; ++i) state[i] = gpio_read(i);
+    json_write_object(state, 'gpio');
 }
 
-function gpio_load()
+function gpio_load_state()
 {
-    gpio_state = json_read_object('gpio');
-
+    var state = json_read_object('gpio');
     for (var i = 0; i < 4; ++i)
     {
-	if (gpio_state.hasOwnProperty(i) == false)
-	    gpio_state[i] = 0;
+	if (state.hasOwnProperty(i) == false) state[i] = 0;
+	gpio_write(i, state[i]);
     }
+    return state;
 }
 
 function gpio_init()
 {
-    gpio_load();
+    var state = gpio_load_state();
 
-    if (hostname == 'rpib')
+    if (hostname == 'rpib_home')
     {
 	try
 	{
@@ -239,37 +270,30 @@ function gpio_init()
 	    {
 		gpio_export(i);
 		gpio_set_output(i);
-		gpio_write(i, gpio_state[i]);
 	    }
 
 	    gpio_is_enabled = true;
 	}
 	catch(e)
 	{
-	    do_perror('gpio init failed');
+	    do_perror('gpio init failed: ' + e.message);
 	}
     }
-}
 
-function gpio_get_status(i)
-{
-    // update with actual status
-    if (gpio_is_enabled) gpio_state[i] = gpio_read(i);
-    return gpio_state[i];
+    for (var i = 0; i < 4; ++i) gpio_write(i, state[i]);
+    gpio_save_state();
 }
 
 function gpio_enable(i)
 {
-    if (gpio_is_enabled) gpio_write(i, 1);
-    else gpio_state[i] = 1;
-    gpio_save();
+    gpio_write(i, 1);
+    gpio_save_state();
 }
 
 function gpio_disable(i)
 {
-    if (gpio_is_enabled) gpio_write(i, 0);
-    else gpio_state[i] = 0;
-    gpio_save();
+    gpio_write(i, 0);
+    gpio_save_state();
 }
 
 function gpio_get_parsed_index(parsed)
@@ -350,7 +374,7 @@ function do_rewrite_html(body)
     for (var i = 0; i < 4; ++i)
     {
 	var status = 'high';
-	if (gpio_get_status(i) == 0) status = 'low';
+	if (gpio_read(i) == 0) status = 'low';
 	body = body.replace('RDC_GPIO[' + i + ']', status); 
     }
 
@@ -387,8 +411,6 @@ function do_server(from_cmdline)
 
     function on_request(req, resp)
     {
-	do_print('on_request');
-
 	function on_auth_request(username)
 	{
 	    // reset html output line
